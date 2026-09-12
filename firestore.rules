@@ -1,0 +1,44 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() { return request.auth != null; }
+    function ownsSchool(schoolId) {
+      return signedIn() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.schoolId == schoolId;
+    }
+
+    match /users/{uid} {
+      allow read: if signedIn() && request.auth.uid == uid;
+      allow create: if signedIn() && request.auth.uid == uid;
+      allow update: if signedIn() && request.auth.uid == uid;
+      allow delete: if false;
+    }
+
+    match /schools/{schoolId} {
+      allow create: if signedIn() && request.resource.data.ownerId == request.auth.uid;
+      allow read: if ownsSchool(schoolId);
+      allow update: if ownsSchool(schoolId) && resource.data.ownerId == request.auth.uid && request.resource.data.ownerId == resource.data.ownerId;
+      allow delete: if ownsSchool(schoolId) && resource.data.ownerId == request.auth.uid;
+
+      match /students/{id} {
+        allow read, create, update, delete: if ownsSchool(schoolId);
+      }
+      match /classes/{id} {
+        allow read, create, update, delete: if ownsSchool(schoolId);
+      }
+      match /teachers/{id} {
+        allow read, create, update, delete: if ownsSchool(schoolId);
+      }
+      match /attendance/{id} {
+        allow read, create, update, delete: if ownsSchool(schoolId);
+      }
+      match /payments/{id} {
+        allow read: if ownsSchool(schoolId);
+        allow write: if false;
+      }
+      match /paymentRequests/{id} {
+        allow read: if ownsSchool(schoolId);
+        allow write: if false;
+      }
+    }
+  }
+}
